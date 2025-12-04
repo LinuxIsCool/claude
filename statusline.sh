@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Catppuccin Mocha Powerline Status Line for Claude Code
-# Fixed based on research: Combined ANSI codes + proper glyph syntax
+# Claude Code Powerline Status Line with Theme Support
+# Themes stored in ~/.claude/themes/
 
 # Read JSON input from stdin
 INPUT=$(cat)
@@ -12,24 +12,33 @@ PL_LEFT=$'\xee\x82\xb6'  # U+E0B6 Left rounded cap
 PL_RIGHT=$'\xee\x82\xb4' # U+E0B4 Right rounded cap
 GIT_BRANCH_ICON=$'\xee\x82\xa0'  # U+E0A0 Git branch icon
 
-# Catppuccin Mocha 256-color approximations (safer than true color)
-# Format: Combined codes \033[48;5;BG;38;5;FGm
-C_SURFACE_BG="238"    # Dark surface ~#313244
-C_MAUVE="183"         # #cba6f7
-C_PEACH="216"         # #fab387
-C_GREEN="157"         # #a6e3a1
-C_SKY="117"           # #89dceb
-C_PINK="218"          # #f5c2e7
-C_TEAL="152"          # #94e2d5
-C_TEXT_LIGHT="255"    # Light text
-C_TEXT_DARK="232"     # Dark text (almost black)
+# Load theme
+THEME_DIR="$HOME/.claude/themes"
+THEME_CONF="$HOME/.claude/statusline-theme.conf"
+THEME_NAME_FILE=$(cat "$THEME_CONF" 2>/dev/null || echo "catppuccin-mocha")
+THEME_FILE="$THEME_DIR/${THEME_NAME_FILE}.sh"
+
+# Source theme or use defaults
+if [ -f "$THEME_FILE" ]; then
+    source "$THEME_FILE"
+else
+    # Fallback: Catppuccin Mocha
+    THEME_NAME="Catppuccin Mocha"
+    C_SURFACE_BG="238"
+    C_SEGMENT_1="216"
+    C_SEGMENT_2="157"
+    C_SEGMENT_3="117"
+    C_SEGMENT_4="218"
+    C_TEXT_LIGHT="255"
+    C_TEXT_DARK="232"
+fi
 
 # Extract data from JSON
 MODEL=$(echo "$INPUT" | jq -r '.model.display_name // .model.id // "Claude"' 2>/dev/null)
 CURRENT_DIR=$(echo "$INPUT" | jq -r '.workspace.current_dir // .cwd // ""' 2>/dev/null)
 # Use full path, replace $HOME with ~
 FULL_PATH="${CURRENT_DIR/#$HOME/\~}"
-# Truncate path if too long (keep last 25 chars with ... prefix)
+# Truncate path if too long (keep last 25 chars with … prefix)
 if [ ${#FULL_PATH} -gt 28 ]; then
     FULL_PATH="…${FULL_PATH: -25}"
 fi
@@ -82,33 +91,33 @@ OUT+="\033[38;5;${C_SURFACE_BG}m${PL_LEFT}\033[0m"
 
 # Segment 1: Model (dark surface bg, light text)
 OUT+="\033[48;5;${C_SURFACE_BG};38;5;${C_TEXT_LIGHT};1m ${MODEL} \033[0m"
-# Arrow: surface color on peach background
-OUT+="\033[48;5;${C_PEACH};38;5;${C_SURFACE_BG}m${PL}\033[0m"
+# Arrow: surface color on segment 1 background
+OUT+="\033[48;5;${C_SEGMENT_1};38;5;${C_SURFACE_BG}m${PL}\033[0m"
 
-# Segment 2: Full path (peach bg, dark text)
-OUT+="\033[48;5;${C_PEACH};38;5;${C_TEXT_DARK};1m  ${FULL_PATH} \033[0m"
+# Segment 2: Full path (segment 1 bg, dark text)
+OUT+="\033[48;5;${C_SEGMENT_1};38;5;${C_TEXT_DARK};1m  ${FULL_PATH} \033[0m"
 
 # Next segment depends on git
 if [ -n "$GIT_BRANCH" ]; then
-    # Arrow: peach on green
-    OUT+="\033[48;5;${C_GREEN};38;5;${C_PEACH}m${PL}\033[0m"
-    # Segment 3: Git with branch icon (green bg, dark text)
-    OUT+="\033[48;5;${C_GREEN};38;5;${C_TEXT_DARK};1m ${GIT_BRANCH_ICON} ${GIT_BRANCH} \033[0m"
-    # Arrow: green on sky
-    OUT+="\033[48;5;${C_SKY};38;5;${C_GREEN}m${PL}\033[0m"
+    # Arrow: segment 1 on segment 2
+    OUT+="\033[48;5;${C_SEGMENT_2};38;5;${C_SEGMENT_1}m${PL}\033[0m"
+    # Segment 3: Git with branch icon (segment 2 bg, dark text)
+    OUT+="\033[48;5;${C_SEGMENT_2};38;5;${C_TEXT_DARK};1m ${GIT_BRANCH_ICON} ${GIT_BRANCH} \033[0m"
+    # Arrow: segment 2 on segment 3
+    OUT+="\033[48;5;${C_SEGMENT_3};38;5;${C_SEGMENT_2}m${PL}\033[0m"
 else
-    # Arrow: peach on sky
-    OUT+="\033[48;5;${C_SKY};38;5;${C_PEACH}m${PL}\033[0m"
+    # Arrow: segment 1 on segment 3
+    OUT+="\033[48;5;${C_SEGMENT_3};38;5;${C_SEGMENT_1}m${PL}\033[0m"
 fi
 
-# Segment 4: Cost (sky bg, dark text)
-OUT+="\033[48;5;${C_SKY};38;5;${C_TEXT_DARK};1m  ${COST_DISPLAY} \033[0m"
-# Arrow: sky on pink
-OUT+="\033[48;5;${C_PINK};38;5;${C_SKY}m${PL}\033[0m"
+# Segment 4: Cost (segment 3 bg, dark text)
+OUT+="\033[48;5;${C_SEGMENT_3};38;5;${C_TEXT_DARK};1m  ${COST_DISPLAY} \033[0m"
+# Arrow: segment 3 on segment 4
+OUT+="\033[48;5;${C_SEGMENT_4};38;5;${C_SEGMENT_3}m${PL}\033[0m"
 
-# Segment 5: Time and Session duration (pink bg, dark text)
-OUT+="\033[48;5;${C_PINK};38;5;${C_TEXT_DARK};1m ${CURRENT_TIME} 🕐 ${SESSION_TIME} \033[0m"
-# Rounded right cap (pink on terminal bg) + trailing space for separation
-OUT+="\033[38;5;${C_PINK}m${PL_RIGHT}\033[0m "
+# Segment 5: Time and Session duration (segment 4 bg, dark text)
+OUT+="\033[48;5;${C_SEGMENT_4};38;5;${C_TEXT_DARK};1m ${CURRENT_TIME} 🕐 ${SESSION_TIME} \033[0m"
+# Rounded right cap (segment 4 on terminal bg) + trailing space for separation
+OUT+="\033[38;5;${C_SEGMENT_4}m${PL_RIGHT}\033[0m "
 
 printf "%b" "$OUT"
