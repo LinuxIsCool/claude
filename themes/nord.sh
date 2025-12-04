@@ -9,7 +9,10 @@ C_SEGMENT_1="110"     # Frost #81a1c1
 C_SEGMENT_2="108"     # Aurora Green #a3be8c
 C_SEGMENT_3="139"     # Aurora Purple #b48ead
 C_SEGMENT_4="173"     # Aurora Orange #d08770
+C_SEGMENT_5="179"     # Aurora Yellow #ebcb8b
+C_SEGMENT_6="167"     # Aurora Red #bf616a
 
 # Text colors
-C_TEXT_LIGHT="255"    # Snow Storm light
+C_TEXT_LIGHT="255"    # Snow Storm light #eceff4
 C_TEXT_DARK="236"     # Polar Night dark
+C_MODEL_TEXT="255"    # Light text on dark surface

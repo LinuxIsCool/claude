@@ -29,9 +29,18 @@ else
     C_SEGMENT_2="157"
     C_SEGMENT_3="117"
     C_SEGMENT_4="218"
+    C_SEGMENT_5="216"
+    C_SEGMENT_6="211"
     C_TEXT_LIGHT="255"
     C_TEXT_DARK="232"
 fi
+
+# Set defaults for extended segments if not defined by theme
+C_SEGMENT_5="${C_SEGMENT_5:-$C_SEGMENT_4}"
+C_SEGMENT_6="${C_SEGMENT_6:-$C_SEGMENT_4}"
+
+# Model text color - defaults to light for dark backgrounds, can be overridden
+C_MODEL_TEXT="${C_MODEL_TEXT:-$C_TEXT_LIGHT}"
 
 # Extract data from JSON
 MODEL=$(echo "$INPUT" | jq -r '.model.display_name // .model.id // "Claude"' 2>/dev/null)
@@ -75,10 +84,20 @@ else
     SESSION_TIME="0s"
 fi
 
-# Git branch (if in repo)
+# Git branch and stats (if in repo)
 GIT_BRANCH=""
+GIT_ADDS=""
+GIT_DELS=""
 if [ -n "$CURRENT_DIR" ] && [ -d "$CURRENT_DIR/.git" ]; then
     GIT_BRANCH=$(cd "$CURRENT_DIR" 2>/dev/null && git branch --show-current 2>/dev/null)
+    # Get additions and deletions from git diff --stat
+    if [ -n "$GIT_BRANCH" ]; then
+        GIT_STAT=$(cd "$CURRENT_DIR" 2>/dev/null && git diff --shortstat 2>/dev/null)
+        if [ -n "$GIT_STAT" ]; then
+            GIT_ADDS=$(echo "$GIT_STAT" | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || echo "0")
+            GIT_DELS=$(echo "$GIT_STAT" | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' || echo "0")
+        fi
+    fi
 fi
 
 # Build statusline with COMBINED escape codes (critical for Claude Code!)
@@ -89,35 +108,53 @@ OUT=""
 # Rounded left cap (surface color on terminal bg)
 OUT+="\033[38;5;${C_SURFACE_BG}m${PL_LEFT}\033[0m"
 
-# Segment 1: Model (dark surface bg, light text)
-OUT+="\033[48;5;${C_SURFACE_BG};38;5;${C_TEXT_LIGHT};1m ${MODEL} \033[0m"
+# Segment 1: Model (surface bg, model text color for proper contrast)
+OUT+="\033[48;5;${C_SURFACE_BG};38;5;${C_MODEL_TEXT};1m ${MODEL} \033[0m"
 # Arrow: surface color on segment 1 background
 OUT+="\033[48;5;${C_SEGMENT_1};38;5;${C_SURFACE_BG}m${PL}\033[0m"
 
 # Segment 2: Full path (segment 1 bg, dark text)
 OUT+="\033[48;5;${C_SEGMENT_1};38;5;${C_TEXT_DARK};1m  ${FULL_PATH} \033[0m"
 
-# Next segment depends on git
+# Track last segment for arrow coloring
+LAST_SEG="${C_SEGMENT_1}"
+
+# Git branch segment
 if [ -n "$GIT_BRANCH" ]; then
-    # Arrow: segment 1 on segment 2
-    OUT+="\033[48;5;${C_SEGMENT_2};38;5;${C_SEGMENT_1}m${PL}\033[0m"
+    # Arrow: last segment on segment 2
+    OUT+="\033[48;5;${C_SEGMENT_2};38;5;${LAST_SEG}m${PL}\033[0m"
     # Segment 3: Git with branch icon (segment 2 bg, dark text)
     OUT+="\033[48;5;${C_SEGMENT_2};38;5;${C_TEXT_DARK};1m ${GIT_BRANCH_ICON} ${GIT_BRANCH} \033[0m"
-    # Arrow: segment 2 on segment 3
-    OUT+="\033[48;5;${C_SEGMENT_3};38;5;${C_SEGMENT_2}m${PL}\033[0m"
-else
-    # Arrow: segment 1 on segment 3
-    OUT+="\033[48;5;${C_SEGMENT_3};38;5;${C_SEGMENT_1}m${PL}\033[0m"
+    LAST_SEG="${C_SEGMENT_2}"
+
+    # Git stats segment (if there are changes)
+    if [ -n "$GIT_ADDS" ] || [ -n "$GIT_DELS" ]; then
+        GIT_ADDS="${GIT_ADDS:-0}"
+        GIT_DELS="${GIT_DELS:-0}"
+        # Arrow: segment 2 on segment 3
+        OUT+="\033[48;5;${C_SEGMENT_3};38;5;${LAST_SEG}m${PL}\033[0m"
+        # Segment 4: Git stats (segment 3 bg, dark text)
+        OUT+="\033[48;5;${C_SEGMENT_3};38;5;${C_TEXT_DARK};1m +${GIT_ADDS} -${GIT_DELS} \033[0m"
+        LAST_SEG="${C_SEGMENT_3}"
+    fi
 fi
 
-# Segment 4: Cost (segment 3 bg, dark text)
-OUT+="\033[48;5;${C_SEGMENT_3};38;5;${C_TEXT_DARK};1m  ${COST_DISPLAY} \033[0m"
-# Arrow: segment 3 on segment 4
-OUT+="\033[48;5;${C_SEGMENT_4};38;5;${C_SEGMENT_3}m${PL}\033[0m"
+# Arrow to cost segment
+OUT+="\033[48;5;${C_SEGMENT_4};38;5;${LAST_SEG}m${PL}\033[0m"
 
-# Segment 5: Time and Session duration (segment 4 bg, dark text)
-OUT+="\033[48;5;${C_SEGMENT_4};38;5;${C_TEXT_DARK};1m ${CURRENT_TIME} 🕐 ${SESSION_TIME} \033[0m"
-# Rounded right cap (segment 4 on terminal bg) + trailing space for separation
-OUT+="\033[38;5;${C_SEGMENT_4}m${PL_RIGHT}\033[0m "
+# Segment: Cost (segment 4 bg, dark text)
+OUT+="\033[48;5;${C_SEGMENT_4};38;5;${C_TEXT_DARK};1m  ${COST_DISPLAY} \033[0m"
+# Arrow: segment 4 on segment 5
+OUT+="\033[48;5;${C_SEGMENT_5};38;5;${C_SEGMENT_4}m${PL}\033[0m"
+
+# Segment: Time (segment 5 bg, dark text)
+OUT+="\033[48;5;${C_SEGMENT_5};38;5;${C_TEXT_DARK};1m ${CURRENT_TIME} \033[0m"
+# Arrow: segment 5 on segment 6
+OUT+="\033[48;5;${C_SEGMENT_6};38;5;${C_SEGMENT_5}m${PL}\033[0m"
+
+# Segment: Session duration (segment 6 bg, dark text)
+OUT+="\033[48;5;${C_SEGMENT_6};38;5;${C_TEXT_DARK};1m ${SESSION_TIME} \033[0m"
+# Rounded right cap (segment 6 on terminal bg) + trailing space for separation
+OUT+="\033[38;5;${C_SEGMENT_6}m${PL_RIGHT}\033[0m "
 
 printf "%b" "$OUT"

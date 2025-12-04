@@ -9,7 +9,10 @@ C_SEGMENT_1="173"     # Peach #fe640b
 C_SEGMENT_2="71"      # Green #40a02b
 C_SEGMENT_3="74"      # Sky #04a5e5
 C_SEGMENT_4="170"     # Pink #ea76cb
+C_SEGMENT_5="105"     # Lavender #7287fd
+C_SEGMENT_6="128"     # Mauve #8839ef
 
 # Text colors
-C_TEXT_LIGHT="232"    # Dark text for light backgrounds
-C_TEXT_DARK="232"     # Dark text
+C_TEXT_LIGHT="231"    # White for dark backgrounds
+C_TEXT_DARK="59"      # Text #4c4f69 for light backgrounds
+C_MODEL_TEXT="59"     # Dark text on light surface
